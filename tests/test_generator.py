@@ -2,6 +2,9 @@
 
 import argparse
 import subprocess
+from pathlib import Path
+
+import pytest
 
 from argparse_usage import generate
 from tests.fixtures.simple_parsers import (
@@ -12,6 +15,21 @@ from tests.fixtures.simple_parsers import (
     create_parser_with_variadic,
     create_simple_parser,
 )
+
+
+def _usage_available() -> bool:
+    """Check if usage CLI is available."""
+    return (
+        Path("/usr/local/bin/usage").exists()
+        or Path("/opt/homebrew/bin/usage").exists()
+        or bool(
+            subprocess.run(
+                ["which", "usage"],
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+    )
 
 
 def test_simple_parser():
@@ -104,6 +122,7 @@ def test_complex_parser():
     assert "cmd test" in spec
 
 
+@pytest.mark.skipif(not _usage_available(), reason="usage CLI not installed")
 def test_generated_spec_is_valid_kdl():
     """Test that generated specs are valid KDL using the usage CLI."""
     parser = create_simple_parser()
