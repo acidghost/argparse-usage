@@ -1,6 +1,6 @@
 # argparse-usage
 
-[![PyPI - Version](https://img.shields.io/pypi/v/argparse-usage?color=rgb(0%2C%2087%2C%20138)](https://pypi.org/project/argparse-usage/)
+[![PyPI - Version](https://img.shields.io/pypi/v/argparse-usage?color=rgb(0%2C%2087%2C%20138))](https://pypi.org/project/argparse-usage/)
 [![CI](https://github.com/acidghost/argparse-usage/actions/workflows/ci.yml/badge.svg)](https://github.com/acidghost/argparse-usage/actions/workflows/ci.yml)
 
 Generate [usage](https://usage.jdx.dev/) KDL files from Python's `argparse.ArgumentParser`.
