@@ -1,5 +1,8 @@
 # argparse-usage
 
+![PyPI - Version](https://img.shields.io/pypi/v/argparse-usage?color=rgb(0%2C%2087%2C%20138))
+![GitHub branch status](https://img.shields.io/github/check-runs/acidghost/argparse-usage/main)
+
 Generate [usage](https://usage.jdx.dev/) KDL files from Python's `argparse.ArgumentParser`.
 
 This library converts Python `argparse` definitions to the [usage spec format](https://usage.jdx.dev/spec/reference/), enabling automatic generation of:
