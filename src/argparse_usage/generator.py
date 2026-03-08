@@ -101,6 +101,10 @@ def _convert_flag_to_spec(action: argparse.Action) -> str:
     if is_store_false and default is None:
         default = True
 
+    # Determine if flag takes an argument
+    # Flags that DON'T take arguments: store_true, store_false, count
+    takes_arg = not (is_store_true or is_store_false or is_count)
+
     # Handle ellipsis notation for variadic flags
     if var and long:
         if long.endswith("..."):
@@ -120,6 +124,7 @@ def _convert_flag_to_spec(action: argparse.Action) -> str:
         var_min=var_min,
         var_max=var_max,
         choices=choices,
+        takes_arg=takes_arg,
     )
 
 
@@ -156,11 +161,12 @@ def _format_subcommand(name: str, parser: argparse.ArgumentParser) -> str:
     lines = [f"cmd {name} {{"]
 
     # Add help text if available
-    help_text = getattr(parser, "description", None) or getattr(
-        parser, "_help_text", None
+    # Prefer help (stored in _help_text) over description
+    help_text = getattr(parser, "_help_text", None) or getattr(
+        parser, "description", None
     )
     if help_text:
-        lines.append(f"  help={escape_string(help_text)}")
+        lines.append(f"  help {escape_string(help_text)}")
 
     # Process all actions (skip help and subparsers)
     for action in parser._actions:
@@ -176,8 +182,19 @@ def _format_subcommand(name: str, parser: argparse.ArgumentParser) -> str:
     # Handle sub-subcommands
     for action in parser._actions:
         if isinstance(action, argparse._SubParsersAction):
+            # Build a map of help text from _choices_actions
+            help_map = {}
+            if hasattr(action, "_choices_actions"):
+                for ca in action._choices_actions:
+                    help_map[ca.dest] = ca.help
+
             for sub_name, sub_parser in action.choices.items():
-                lines.append(_format_subcommand(sub_name, sub_parser))
+                # Store the help text on the parser if available
+                if sub_name in help_map and help_map[sub_name]:
+                    sub_parser._help_text = help_map[sub_name]
+                # Indent each line of the sub-subcommand block
+                for line in _format_subcommand(sub_name, sub_parser).split("\n"):
+                    lines.append(f"  {line}")
 
     lines.append("}")
     return "\n".join(lines)
@@ -245,7 +262,16 @@ def generate_usage_spec(
     # Handle subcommands
     for action in parser._actions:
         if isinstance(action, argparse._SubParsersAction):
+            # Build a map of help text from _choices_actions
+            help_map = {}
+            if hasattr(action, "_choices_actions"):
+                for ca in action._choices_actions:
+                    help_map[ca.dest] = ca.help
+
             for name, sub_parser in action.choices.items():
+                # Store the help text on the parser if available
+                if name in help_map and help_map[name]:
+                    sub_parser._help_text = help_map[name]
                 lines.append(_format_subcommand(name, sub_parser))
 
     return "\n".join(lines)

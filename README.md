@@ -166,6 +166,9 @@ Generate a usage spec KDL string from an ArgumentParser.
 See the [examples/](examples/) directory for complete examples:
 
 - [basic_usage.py](examples/basic_usage.py) - Basic usage with flags, args, and subcommands
+- [complex_usage.py](examples/complex_usage.py) - Complex CLI with nested subcommands (config, database, deploy)
+
+For information on setting up shell completions, see the [examples README](examples/README.md).
 
 ## Contributing
 

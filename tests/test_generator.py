@@ -196,7 +196,9 @@ def test_flag_with_default():
     spec = generate(parser)
 
     assert 'flag "--output"' in spec
-    assert 'default="output.txt"' in spec
+    # Flags with args use block format
+    assert 'default "output.txt"' in spec
+    assert "arg <output>" in spec
 
 
 def test_custom_bin_name():
@@ -222,3 +224,238 @@ def test_epilog():
     # assert "after_help" in spec
     # assert "https://example.com" in spec
     assert spec  # Just verify we can generate the spec
+
+
+def test_string_flag_with_argument():
+    """Test that string flags have arg children."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    parser.add_argument("--output", help="Output file")
+
+    spec = generate(parser)
+
+    # Should have arg child (no quotes around arg name in blocks)
+    assert "arg <output>" in spec
+    # Should be inside a block
+    assert 'flag "--output" {' in spec
+
+
+def test_int_flag_with_argument():
+    """Test that integer flags have arg children."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    parser.add_argument("--port", type=int, help="Port number")
+
+    spec = generate(parser)
+
+    # Should have arg child (no quotes around arg name in blocks)
+    assert "arg <port>" in spec
+
+
+def test_bool_flag_no_argument():
+    """Test that bool flags do NOT have arg children."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    parser.add_argument("--force", action="store_true", help="Force operation")
+
+    spec = generate(parser)
+
+    # Should NOT have arg child
+    assert 'arg "<force>"' not in spec
+    # Should be inline
+    lines = spec.split("\n")
+    force_lines = [line for line in lines if 'flag "--force"' in line]
+    assert len(force_lines) == 1
+    assert "{" not in force_lines[0]
+
+
+def test_count_flag_no_argument():
+    """Test that count flags do NOT have arg children."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    parser.add_argument("-v", "--verbose", action="count", help="Increase verbosity")
+
+    spec = generate(parser)
+
+    # Should NOT have arg child
+    assert 'arg "<verbose>"' not in spec
+    # Should have count attribute
+    assert "count=#true" in spec
+
+
+def test_flag_with_choices_has_arg():
+    """Test that flags with choices have arg children with choices."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    parser.add_argument(
+        "--format", choices=["json", "yaml", "xml"], help="Output format"
+    )
+
+    spec = generate(parser)
+
+    # Should have arg child with choices (no quotes around arg name in blocks)
+    assert "arg <format> {" in spec
+    assert "choices" in spec
+    assert "json" in spec
+    assert "yaml" in spec
+    assert "xml" in spec
+
+
+def test_flag_with_variadic_args():
+    """Test flags that accept multiple arguments."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    parser.add_argument("--tags", nargs="*", help="Tags")
+
+    spec = generate(parser)
+
+    # Should have arg child with var (block format uses space, no =)
+    assert "arg <tags>" in spec
+    assert "var #true" in spec
+
+
+def test_flag_with_exact_nargs():
+    """Test flags that accept exact number of arguments."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    parser.add_argument("--coords", nargs=2, help="Two coordinates")
+
+    spec = generate(parser)
+
+    # Should have arg child (block format uses space, no =)
+    assert "arg <coords>" in spec
+    assert "var_min 2" in spec
+    assert "var_max 2" in spec
+
+
+def test_multiple_flags_mixed():
+    """Test multiple flags with different types."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    parser.add_argument("--config", help="Config file")
+    parser.add_argument("--force", action="store_true", help="Force")
+    parser.add_argument("-v", "--verbose", action="count", help="Verbose")
+    parser.add_argument("--port", type=int, default=8080, help="Port")
+
+    spec = generate(parser)
+
+    # String flag should have arg (block format uses space, no =)
+    assert "arg <config>" in spec
+    # Bool flag should NOT have arg (and uses inline format)
+    assert 'arg "<force>"' not in spec
+    # Count flag should NOT have arg (and uses inline format)
+    assert 'arg "<verbose>"' not in spec
+    # Int flag should have arg (block format uses space, no =)
+    assert "arg <port>" in spec
+    # Int flag should have default (block format uses space, no =)
+    assert 'default "8080"' in spec
+
+
+def test_block_attribute_format():
+    """Test that attributes inside blocks use space not equals sign."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    parser.add_argument("--format", choices=["json", "yaml"], help="Output format")
+
+    spec = generate(parser)
+
+    # In blocks with choices, attributes should be `key value` not `key=value`
+    # Wrong: help="Output format"
+    # Right: help "Output format"
+    assert 'help "Output format"' in spec
+
+
+def test_subparser_with_bool_flag():
+    """Test subparser with bool flag."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    add_cmd = subparsers.add_parser("add", help="Add something")
+    add_cmd.add_argument("--force", action="store_true", help="Force add")
+
+    spec = generate(parser)
+
+    # Check subcommand exists
+    assert "cmd add" in spec
+    # Check flag in subcommand uses inline format
+    assert 'flag "--force" help="Force add"' in spec
+    # Should NOT have arg child
+    assert "arg <force>" not in spec
+
+
+def test_subparser_with_flag_arg():
+    """Test subparser with flag that accepts an argument."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    build_cmd = subparsers.add_parser("build", help="Build project")
+    build_cmd.add_argument("--output", help="Output directory")
+
+    spec = generate(parser)
+
+    # Check subcommand exists
+    assert "cmd build" in spec
+    # Check flag in subcommand uses block format (because it takes arg)
+    lines = spec.split("\n")
+    build_section = []
+    in_build = False
+    for line in lines:
+        if "cmd build" in line:
+            in_build = True
+        elif in_build and line.strip().startswith("cmd "):
+            break
+        elif in_build:
+            build_section.append(line)
+
+    build_spec = "\n".join(build_section)
+    # Should have flag with block format (uses space, no =)
+    assert 'flag "--output" {' in build_spec
+    # Should have arg child
+    assert "arg <output>" in build_spec
+
+
+def test_subparser_help_from_help_parameter():
+    """Test that subparser help text is taken from help parameter, not description."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Only provide help parameter, not description
+    add_cmd = subparsers.add_parser("add", help="Add something")
+    add_cmd.add_argument("--name", help="Item name")
+
+    spec = generate(parser)
+
+    # Check subcommand exists
+    assert "cmd add" in spec
+    # Check that help text is present
+    assert 'help "Add something"' in spec
+
+
+def test_subparser_help_fallback_to_description():
+    """Test that subparser help falls back to description if help is not provided."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Only provide description, not help
+    add_cmd = subparsers.add_parser("add", description="Add something else")
+    add_cmd.add_argument("--name", help="Item name")
+
+    spec = generate(parser)
+
+    # Check subcommand exists
+    assert "cmd add" in spec
+    # Check that description is used as help
+    assert 'help "Add something else"' in spec
+
+
+def test_nested_subparser_help():
+    """Test that nested subparsers also get help text from help parameter."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    config_cmd = subparsers.add_parser("config", help="Manage config")
+    config_subparsers = config_cmd.add_subparsers(dest="config_command", required=True)
+
+    # Nested subcommand with help
+    get_cmd = config_subparsers.add_parser("get", help="Get a config value")
+    get_cmd.add_argument("key", help="Config key")
+
+    spec = generate(parser)
+
+    # Check nested subcommand exists
+    assert "cmd config" in spec
+    assert "cmd get" in spec
+    # Check that help text is present for both levels
+    assert 'help "Manage config"' in spec
+    assert 'help "Get a config value"' in spec

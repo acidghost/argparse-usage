@@ -1,51 +1,87 @@
+#!/usr/bin/env -S uv run
 """Example usage of argparse-usage library."""
 
 import argparse
+import sys
 
 import argparse_usage
 
 
-def main():
-    """Generate a usage spec for a sample CLI."""
+def cmd_create(args):
+    print(f"Creating '{args.name}' (type={args.type}, force={args.force})")
+
+
+def cmd_delete(args):
+    print(f"Deleting '{args.name}' (dry_run={args.dry_run})")
+
+
+def cmd_list(args):
+    print(f"Listing items (filter={args.filter}, limit={args.limit})")
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="example-cli",
-        description="An example CLI tool",
-        epilog="For more info, visit https://example.com",
+        prog="mytool",
+        description="Example CLI with subcommands",
     )
-
-    # Add flags
     parser.add_argument(
-        "-v", "--verbose", action="count", default=0, help="Increase verbosity"
-    )
-    parser.add_argument("-q", "--quiet", action="store_true", help="Suppress output")
-    parser.add_argument("-o", "--output", default="output.txt", help="Output file")
-
-    # Add flags
-    parser.add_argument("-f", "--file", help="Input file")
-    parser.add_argument("--stdin", action="store_true", help="Read from stdin")
-
-    # Add positional arguments
-    parser.add_argument("files", nargs="+", help="Files to process")
-
-    # Add subcommands
-    subparsers = parser.add_subparsers(dest="command")
-
-    build_cmd = subparsers.add_parser("build", help="Build project")
-    build_cmd.add_argument("--debug", action="store_true", help="Debug build")
-
-    test_cmd = subparsers.add_parser("test", help="Run tests")
-    test_cmd.add_argument("--verbose", action="count", help="Test verbosity")
-    test_cmd.add_argument("tests", nargs="*", help="Specific tests to run")
-
-    # Generate usage spec
-    spec = argparse_usage.generate(
-        parser,
-        name="Example CLI",
-        version="1.0.0",
-        author="Example Author",
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
     )
 
-    print(spec)
+    subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
+    subparsers.required = True  # Enforce that a subcommand must be provided
+
+    # --- create ---
+    p_create = subparsers.add_parser("create", help="Create a new item")
+    p_create.add_argument("name", help="Name of the item")
+    p_create.add_argument(
+        "--type", "-t", default="default", help="Item type (default: %(default)s)"
+    )
+    p_create.add_argument(
+        "--force", "-f", action="store_true", help="Overwrite if exists"
+    )
+    p_create.set_defaults(func=cmd_create)
+
+    # --- delete ---
+    p_delete = subparsers.add_parser("delete", help="Delete an item")
+    p_delete.add_argument("name", help="Name of the item to delete")
+    p_delete.add_argument(
+        "--dry-run", action="store_true", help="Simulate deletion without changes"
+    )
+    p_delete.set_defaults(func=cmd_delete)
+
+    # --- list ---
+    p_list = subparsers.add_parser("list", help="List all items")
+    p_list.add_argument("--filter", default=None, help="Filter by keyword")
+    p_list.add_argument(
+        "--limit", type=int, default=20, help="Max results (default: %(default)s)"
+    )
+    p_list.set_defaults(func=cmd_list)
+
+    return parser
+
+
+def main():
+    parser = build_parser()
+
+    if len(sys.argv) > 1 and sys.argv[1] == "--usage":
+        # Generate usage spec
+        spec = argparse_usage.generate(
+            parser,
+            name="Example CLI",
+            version="1.0.0",
+            author="Example Author",
+        )
+
+        print(spec)
+        return
+
+    args = parser.parse_args()
+
+    if args.verbose:
+        print(f"[verbose] Running command: {args.command}")
+
+    args.func(args)  # Dispatch to the appropriate handler
 
 
 if __name__ == "__main__":
