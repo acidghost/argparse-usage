@@ -65,7 +65,6 @@ jobs:
           gh release create "$TAG_NAME" \
             --title "$TAG_NAME" \
             --generate-notes \
-            "$TAG_NAME" \
             dist/*
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
