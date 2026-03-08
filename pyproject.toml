@@ -1,6 +1,6 @@
 [project]
 name = "argparse-usage"
-version = "0.1.0"
+version = "0.1.1"
 description = "Generate usage spec KDL files from Python argparse.ArgumentParser"
 readme = "README.md"
 authors = [
