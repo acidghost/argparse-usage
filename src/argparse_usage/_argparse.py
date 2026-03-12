@@ -1,4 +1,4 @@
-"""Internal module to transform an argparse.ArgumentParser into an AST of an Usage spec."""
+"""Internal module to transform an argparse.ArgumentParser into an Usage spec object."""
 
 import argparse
 from collections.abc import Iterator
@@ -6,14 +6,14 @@ from collections.abc import Iterator
 from argparse_usage._usage import Arg, Cmd, Flag, Spec
 
 
-def _generate_ast(
+def _generate_spec(
     parser: argparse.ArgumentParser,
     name: str | None = None,
     version: str | None = None,
     author: str | None = None,
     bin_name: str | None = None,
 ) -> Spec:
-    """Generate an AST from an ArgumentParser."""
+    """Generate an Usage spec object from an ArgumentParser."""
     spec = Spec(
         name=name or parser.prog,
         bin=bin_name or parser.prog,

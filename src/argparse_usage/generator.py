@@ -1,8 +1,8 @@
 """Generate usage specs from argparse.ArgumentParser."""
+
 import argparse
 
-from argparse_usage._argparse import _generate_ast
-from argparse_usage._usage import _KDLFormatter
+from argparse_usage._argparse import _generate_spec
 
 
 def generate_usage_spec(
@@ -24,8 +24,6 @@ def generate_usage_spec(
     Returns:
         A KDL-formatted usage spec string.
     """
-    ast = _generate_ast(
+    return _generate_spec(
         parser=parser, name=name, version=version, author=author, bin_name=bin_name
-    )
-    formatter = _KDLFormatter()
-    return formatter.format(ast)
+    ).to_kdl()
