@@ -1,9 +1,8 @@
 """Generate usage specs from argparse.ArgumentParser."""
-
 import argparse
 
-from argparse_usage.parser import _generate_ast
-from argparse_usage.formatter import _KDLFormatter
+from argparse_usage._argparse import _generate_ast
+from argparse_usage._usage import _KDLFormatter
 
 
 def generate_usage_spec(

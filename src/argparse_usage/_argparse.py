@@ -1,8 +1,9 @@
-"""Parser to convert ArgumentParser to AST."""
+"""Internal module to transform an argparse.ArgumentParser into an AST of an Usage spec."""
 
 import argparse
 from collections.abc import Iterator
-from argparse_usage.ast import Spec, Flag, Arg, Cmd
+
+from argparse_usage._usage import Arg, Cmd, Flag, Spec
 
 
 def _generate_ast(
