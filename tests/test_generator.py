@@ -7,14 +7,20 @@ from pathlib import Path
 import pytest
 
 from argparse_usage import generate
-from tests.fixtures.simple_parsers import (
-    create_complex_parser,
-    create_parser_with_choices,
-    create_parser_with_parent,
-    create_parser_with_subcommands,
-    create_parser_with_variadic,
-    create_simple_parser,
-)
+
+
+def create_simple_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="mycli",
+        description="A simple CLI tool",
+    )
+    parser.add_argument("-f", "--force", action="store_true", help="Force operation")
+    parser.add_argument(
+        "-v", "--verbose", action="count", default=0, help="Increase verbosity"
+    )
+    parser.add_argument("-o", "--output", default="output.txt", help="Output file")
+    parser.add_argument("file", help="Input file")
+    return parser
 
 
 def _usage_available() -> bool:
@@ -58,7 +64,18 @@ def test_parser_with_version():
 
 def test_parser_with_choices():
     """Test parser with choice arguments."""
-    parser = create_parser_with_choices()
+    parser = argparse.ArgumentParser(
+        prog="mycli",
+        description="A CLI with choices",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["json", "yaml", "xml"],
+        help="Output format",
+    )
+    parser.add_argument(
+        "action", choices=["create", "update", "delete"], help="Action to perform"
+    )
     spec = generate(parser)
 
     assert "choices" in spec
@@ -69,7 +86,13 @@ def test_parser_with_choices():
 
 def test_parser_with_variadic():
     """Test parser with variadic arguments."""
-    parser = create_parser_with_variadic()
+    parser = argparse.ArgumentParser(
+        prog="mycli",
+        description="A CLI with variadic args",
+    )
+    parser.add_argument("files", nargs="+", help="Input files (one or more)")
+    parser.add_argument("optional", nargs="*", help="Optional additional files")
+    parser.add_argument("--tags", nargs="*", help="Tags to add")
     spec = generate(parser)
 
     assert "<files>..." in spec
@@ -79,7 +102,20 @@ def test_parser_with_variadic():
 
 def test_parser_with_parent():
     """Test parser with parent parser inheritance."""
-    parser = create_parser_with_parent()
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument(
+        "-v", "--verbose", action="count", default=0, help="Increase verbosity"
+    )
+    parent_parser.add_argument(
+        "-q", "--quiet", action="store_true", help="Suppress output"
+    )
+
+    parser = argparse.ArgumentParser(
+        prog="mycli",
+        parents=[parent_parser],
+        description="A CLI with parent parser",
+    )
+    parser.add_argument("file", help="Input file")
     spec = generate(parser)
 
     # Should have flags from parent
@@ -92,7 +128,22 @@ def test_parser_with_parent():
 
 def test_parser_with_subcommands():
     """Test parser with subcommands."""
-    parser = create_parser_with_subcommands()
+    parser = argparse.ArgumentParser(
+        prog="mycli",
+        description="A CLI with subcommands",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    add_cmd = subparsers.add_parser("add", help="Add something")
+    add_cmd.add_argument("name", help="Name to add")
+    add_cmd.add_argument("-f", "--force", action="store_true", help="Force add")
+
+    list_cmd = subparsers.add_parser("list", help="List items")
+    list_cmd.add_argument("-a", "--all", action="store_true", help="List all")
+    list_cmd.add_argument("--sort", choices=["name", "date", "size"], help="Sort by")
+
+    remove_cmd = subparsers.add_parser("remove", help="Remove item")
+    remove_cmd.add_argument("name", help="Name to remove")
     spec = generate(parser)
 
     assert "cmd add" in spec
@@ -105,7 +156,33 @@ def test_parser_with_subcommands():
 
 def test_complex_parser():
     """Test complex parser with many features."""
-    parser = create_complex_parser()
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument(
+        "-v", "--verbose", action="count", default=0, help="Increase verbosity"
+    )
+
+    parser = argparse.ArgumentParser(
+        prog="mycli",
+        description="A complex CLI tool",
+        epilog="For more information, visit https://example.com",
+        parents=[parent_parser],
+    )
+
+    parser.add_argument("-f", "--file", help="Input file")
+    parser.add_argument("--stdin", action="store_true", help="Read from stdin")
+    parser.add_argument("-o", "--output", default="output.txt", help="Output file")
+    parser.add_argument("--format", choices=["json", "yaml"], help="Output format")
+
+    parser.add_argument("files", nargs="+", help="Files to process")
+    parser.add_argument("options", nargs="*", help="Additional options")
+
+    subparsers = parser.add_subparsers(dest="command")
+    build_cmd = subparsers.add_parser("build", help="Build project")
+    build_cmd.add_argument("--debug", action="store_true", help="Debug build")
+
+    test_cmd = subparsers.add_parser("test", help="Run tests")
+    test_cmd.add_argument("--verbose", action="count", help="Test verbosity")
+    test_cmd.add_argument("tests", nargs="*", help="Specific tests to run")
     spec = generate(parser)
 
     # Check metadata
