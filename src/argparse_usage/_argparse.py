@@ -22,8 +22,10 @@ def _generate_spec(
         about=parser.description,
     )
 
+    formatter = parser._get_formatter()
+
     for action in _get_all_actions(parser):
-        node = _action_to_node(action)
+        node = _action_to_node(action, formatter)
         if node:
             spec.children.append(node)
 
@@ -39,7 +41,9 @@ def _generate_spec(
                 # Store the help text on the parser if available
                 if sub_name in help_map and help_map[sub_name]:
                     sub_parser._help_text = help_map[sub_name]
-                spec.children.append(_subcommand_to_node(sub_name, sub_parser))
+                spec.children.append(
+                    _subcommand_to_node(sub_name, sub_parser, formatter)
+                )
 
     return spec
 
@@ -55,15 +59,17 @@ def _get_all_actions(parser: argparse.ArgumentParser) -> Iterator[argparse.Actio
         yield action
 
 
-def _action_to_node(action: argparse.Action) -> Flag | Arg | None:
+def _action_to_node(
+    action: argparse.Action, formatter: argparse.HelpFormatter
+) -> Flag | Arg | None:
     """Convert an argparse Action to an AST node."""
     if isinstance(action, (argparse._HelpAction, argparse._SubParsersAction)):
         return None
 
     if _is_flag(action):
-        return _flag_to_node(action)
+        return _flag_to_node(action, formatter)
     elif _is_positional(action):
-        return _positional_to_node(action)
+        return _positional_to_node(action, formatter)
 
     return None
 
@@ -104,7 +110,14 @@ def _get_var_info(nargs) -> tuple[bool, int | None, int | None]:
         return False, None, None
 
 
-def _flag_to_node(action: argparse.Action) -> Flag:
+def _expand_help_text(
+    action: argparse.Action, formatter: argparse.HelpFormatter
+) -> str | None:
+    """Expand argparse help text placeholders like %(default)s."""
+    return formatter._expand_help(action) if action.help else None
+
+
+def _flag_to_node(action: argparse.Action, formatter: argparse.HelpFormatter) -> Flag:
     """Convert a flag action to Flag node."""
     short, long = _get_flag_names(action)
     var, var_min, var_max = _get_var_info(getattr(action, "nargs", None))
@@ -131,7 +144,7 @@ def _flag_to_node(action: argparse.Action) -> Flag:
     return Flag(
         short=short,
         long=long,
-        help=getattr(action, "help", None),
+        help=_expand_help_text(action, formatter),
         required=getattr(action, "required", False),
         default=default,
         count=is_count,
@@ -143,7 +156,9 @@ def _flag_to_node(action: argparse.Action) -> Flag:
     )
 
 
-def _positional_to_node(action: argparse.Action) -> Arg:
+def _positional_to_node(
+    action: argparse.Action, formatter: argparse.HelpFormatter
+) -> Arg:
     """Convert a positional argument to Arg node."""
     var, var_min, var_max = _get_var_info(getattr(action, "nargs", None))
 
@@ -155,7 +170,7 @@ def _positional_to_node(action: argparse.Action) -> Arg:
 
     return Arg(
         name=action.dest,
-        help=getattr(action, "help", None),
+        help=_expand_help_text(action, formatter),
         required=required,
         default=getattr(action, "default", None),
         var=var,
@@ -165,7 +180,9 @@ def _positional_to_node(action: argparse.Action) -> Arg:
     )
 
 
-def _subcommand_to_node(name: str, parser: argparse.ArgumentParser) -> Cmd:
+def _subcommand_to_node(
+    name: str, parser: argparse.ArgumentParser, formatter: argparse.HelpFormatter
+) -> Cmd:
     """Convert subparser to Cmd node."""
     help_text = getattr(parser, "_help_text", None) or getattr(
         parser, "description", None
@@ -174,7 +191,7 @@ def _subcommand_to_node(name: str, parser: argparse.ArgumentParser) -> Cmd:
     cmd = Cmd(name=name, help=help_text)
 
     for action in parser._actions:
-        node = _action_to_node(action)
+        node = _action_to_node(action, formatter)
         if node:
             cmd.children.append(node)
 
@@ -191,6 +208,8 @@ def _subcommand_to_node(name: str, parser: argparse.ArgumentParser) -> Cmd:
                 # Store the help text on the parser if available
                 if sub_name in help_map and help_map[sub_name]:
                     sub_parser._help_text = help_map[sub_name]
-                cmd.children.append(_subcommand_to_node(sub_name, sub_parser))
+                cmd.children.append(
+                    _subcommand_to_node(sub_name, sub_parser, formatter)
+                )
 
     return cmd

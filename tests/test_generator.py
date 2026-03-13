@@ -536,3 +536,68 @@ def test_nested_subparser_help():
     # Check that help text is present for both levels
     assert 'help "Manage config"' in spec
     assert 'help "Get a config value"' in spec
+
+
+def test_help_text_with_default_placeholder():
+    """Test that %(default)s placeholder is replaced with actual default value."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    parser.add_argument(
+        "--type", default="default", help="Item type (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=20, help="Max results (default: %(default)s)"
+    )
+
+    spec = generate(parser)
+
+    # Default value should be substituted in help text
+    assert 'help "Item type (default: default)"' in spec
+    assert 'help "Max results (default: 20)"' in spec
+    # Should not contain the placeholder
+    assert "%(default)s" not in spec
+
+
+def test_help_text_with_prog_placeholder():
+    """Test that %(prog)s placeholder is replaced with program name."""
+    parser = argparse.ArgumentParser(prog="myprog")
+    parser.add_argument("--config", help="Config file (prog: %(prog)s)")
+
+    spec = generate(parser)
+
+    # Program name should be substituted in help text
+    assert 'help "Config file (prog: myprog)"' in spec
+    assert "%(prog)s" not in spec
+
+
+def test_help_text_in_subcommand():
+    """Test that placeholders are expanded in subcommand arguments."""
+    parser = argparse.ArgumentParser(prog="mycli")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    create_cmd = subparsers.add_parser("create", help="Create an item")
+    create_cmd.add_argument(
+        "--type", default="default", help="Item type (default: %(default)s)"
+    )
+
+    spec = generate(parser)
+
+    # Default value should be substituted in subcommand
+    assert 'help "Item type (default: default)"' in spec
+    assert "%(default)s" not in spec
+
+
+def test_argument_defaults_help_formatter():
+    """Test argparse.ArumentDefaultsHelpFormatter."""
+    parser = argparse.ArgumentParser(
+        prog="mycli", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument("--type", default="default", help="Item type")
+    parser.add_argument("--limit", type=int, default=20, help="Max results")
+
+    spec = generate(parser)
+
+    # Default value should be substituted in help text
+    assert 'help "Item type (default: default)"' in spec
+    assert 'help "Max results (default: 20)"' in spec
+    # Should not contain the placeholder
+    assert "%(default)s" not in spec
